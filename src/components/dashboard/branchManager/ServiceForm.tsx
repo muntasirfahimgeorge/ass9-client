@@ -17,29 +17,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { createService } from "@/lib/action/services";
 import type { TServiceFormState } from "@/types";
-import { useSession } from "@/lib/auth-client";
 
 type ServiceFormProps = {
   onSuccess: () => void;
 };
 
-// The Add Service form. On submit it sends the form to the createService server action.
-// The action checks every field, so this component only shows what comes back.
+const categories = [
+  "Smartphone",
+  "Laptop & PC",
+  "AC",
+  "Refrigerator",
+  "TV",
+  "Washing Machine",
+  "Electrical",
+] as const;
+
 const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<TServiceFormState | null>(null);
 
-  const { data: session } = useSession();
-  const user = session?.user;
-  const branch = user?.branch || "Dhaka";
+  const errors = result?.errors ?? {};
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const formData = new FormData(e.currentTarget);
-
-    const data = Object.fromEntries(formData.entries());
-
-    console.log(data, "data");
 
     startTransition(async () => {
       try {
@@ -47,7 +49,10 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
         setResult(response);
 
         if (response.success) {
-          toast.add({ title: "Service added", description: response.message });
+          toast.add({
+            title: "Service submitted",
+            description: response.message,
+          });
           onSuccess();
         }
       } catch {
@@ -59,10 +64,6 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
     });
   };
 
-  const errors = result?.errors ?? {};
-
-  console.log(user, "user");
-
   return (
     <form onSubmit={handleSubmit}>
       <FieldGroup>
@@ -73,40 +74,49 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
           </Alert>
         )}
 
-        <Field data-invalid={!!errors.name || undefined}>
-          <FieldLabel htmlFor="name">Service name</FieldLabel>
+        <Field data-invalid={!!errors.title || undefined}>
+          <FieldLabel htmlFor="title">Service title</FieldLabel>
           <Input
-            id="name"
-            name="name"
-            placeholder="Premium Foam Wash"
+            id="title"
+            name="title"
+            placeholder="Laptop motherboard repair"
             required
             disabled={isPending}
-            aria-invalid={!!errors.name || undefined}
+            aria-invalid={!!errors.title || undefined}
           />
-          <FieldError>{errors.name}</FieldError>
+          <FieldError>{errors.title}</FieldError>
         </Field>
 
-        <Field data-invalid={!!errors.branch || undefined}>
-          <FieldLabel htmlFor="branch">Branch name</FieldLabel>
-          <Input
-            id="branch"
-            name="branch"
-            placeholder="Branch"
+        <Field data-invalid={!!errors.category || undefined}>
+          <FieldLabel htmlFor="category">Category</FieldLabel>
+          <select
+            id="category"
+            name="category"
             required
-            value={branch || "Dhaka"}
-            readOnly
-            aria-invalid={!!errors.branch || undefined}
-          />
-          <FieldError>{errors.branch}</FieldError>
+            disabled={isPending}
+            aria-invalid={!!errors.category || undefined}
+            defaultValue=""
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Select a category
+            </option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <FieldError>{errors.category}</FieldError>
         </Field>
 
         <Field data-invalid={!!errors.image || undefined}>
-          <FieldLabel htmlFor="image">Image URL</FieldLabel>
+          <FieldLabel htmlFor="image">Service image URL</FieldLabel>
           <Input
             id="image"
             name="image"
             type="url"
-            placeholder="https://example.com/wash.jpg"
+            placeholder="https://example.com/service.jpg"
             required
             disabled={isPending}
             aria-invalid={!!errors.image || undefined}
@@ -119,8 +129,8 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
           <Textarea
             id="description"
             name="description"
-            rows={3}
-            placeholder="What does this service include?"
+            rows={4}
+            placeholder="Describe the repair service..."
             required
             disabled={isPending}
             aria-invalid={!!errors.description || undefined}
@@ -129,63 +139,69 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field data-invalid={!!errors.price || undefined}>
-            <FieldLabel htmlFor="price">Price (৳)</FieldLabel>
+          <Field data-invalid={!!errors.basePrice || undefined}>
+            <FieldLabel htmlFor="basePrice">Base price (৳)</FieldLabel>
             <Input
-              id="price"
-              name="price"
+              id="basePrice"
+              name="basePrice"
               type="number"
-              min={0}
-              step="any"
+              min="0.01"
+              step="0.01"
               placeholder="500"
               required
               disabled={isPending}
-              aria-invalid={!!errors.price || undefined}
+              aria-invalid={!!errors.basePrice || undefined}
             />
-            <FieldError>{errors.price}</FieldError>
+            <FieldError>{errors.basePrice}</FieldError>
           </Field>
 
-          <Field data-invalid={!!errors.duration || undefined}>
-            <FieldLabel htmlFor="duration">Duration (minutes)</FieldLabel>
+          <Field data-invalid={!!errors.estimatedDuration || undefined}>
+            <FieldLabel htmlFor="estimatedDuration">
+              Estimated duration
+            </FieldLabel>
             <Input
-              id="duration"
-              name="duration"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="45"
+              id="estimatedDuration"
+              name="estimatedDuration"
+              placeholder="30-45 minutes"
               required
               disabled={isPending}
-              aria-invalid={!!errors.duration || undefined}
+              aria-invalid={!!errors.estimatedDuration || undefined}
             />
-            <FieldError>{errors.duration}</FieldError>
+            <FieldError>{errors.estimatedDuration}</FieldError>
           </Field>
         </div>
 
-        <Field data-invalid={!!errors.keyFeatures || undefined}>
-          <FieldLabel htmlFor="keyFeatures">Key features</FieldLabel>
-          <Textarea
-            id="keyFeatures"
-            name="keyFeatures"
-            rows={3}
-            placeholder={"Exterior foam wash\nInterior vacuum\nTire polish"}
+        <Field data-invalid={!!errors.serviceMode || undefined}>
+          <FieldLabel htmlFor="serviceMode">Service mode</FieldLabel>
+          <select
+            id="serviceMode"
+            name="serviceMode"
             required
             disabled={isPending}
-            aria-invalid={!!errors.keyFeatures || undefined}
-          />
-          <FieldError>{errors.keyFeatures}</FieldError>
+            defaultValue=""
+            aria-invalid={!!errors.serviceMode || undefined}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Select service mode
+            </option>
+            <option value="Home Visit">Home Visit</option>
+            <option value="Shop Drop-off">Shop Drop-off</option>
+          </select>
+          <FieldError>{errors.serviceMode}</FieldError>
         </Field>
 
-        <Field data-invalid={!!errors.slot || undefined}>
-          <FieldLabel htmlFor="slot">Slot (optional)</FieldLabel>
+        <Field data-invalid={!!errors.serviceArea || undefined}>
+          <FieldLabel htmlFor="serviceArea">Service area</FieldLabel>
           <Input
-            id="slot"
-            name="slot"
-            placeholder="Morning, 9 AM – 11 AM"
+            id="serviceArea"
+            name="serviceArea"
+            placeholder="Dhanmondi, Dhaka"
+            required
             disabled={isPending}
-            aria-invalid={!!errors.slot || undefined}
+            aria-invalid={!!errors.serviceArea || undefined}
           />
-          <FieldError>{errors.slot}</FieldError>
+          <FieldError>{errors.serviceArea}</FieldError>
         </Field>
 
         <div className="flex justify-end pt-2">
@@ -197,10 +213,10 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
             {isPending ? (
               <>
                 <Spinner />
-                Saving…
+                Submitting...
               </>
             ) : (
-              "Add service"
+              "Submit service"
             )}
           </Button>
         </div>

@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -8,15 +9,13 @@ type ServiceCardProps = {
   service: TService;
 };
 
-// One service shown as a card on the public services page.
 const ServiceCard = ({ service }: ServiceCardProps) => {
   return (
-    <Card>
-      {/* A box with a fixed height, so every card looks the same. */}
+    <Card className="overflow-hidden">
       <div className="relative h-48 w-full bg-muted">
         <Image
           src={service.image}
-          alt={service.name}
+          alt={service.title}
           fill
           unoptimized
           className="object-cover"
@@ -24,9 +23,10 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
       </div>
 
       <CardHeader>
-        <CardTitle>{service.name}</CardTitle>
-        <div>
-          <Badge variant="secondary">{service.branch}</Badge>
+        <CardTitle>{service.title}</CardTitle>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary">{service.category}</Badge>
+          <Badge variant="outline">{service.serviceMode}</Badge>
         </div>
       </CardHeader>
 
@@ -34,12 +34,19 @@ const ServiceCard = ({ service }: ServiceCardProps) => {
         <p className="line-clamp-2 text-sm text-muted-foreground">
           {service.description}
         </p>
-        <p className="text-sm font-medium">
-          ৳ {service.price} · {service.duration} min
-        </p>
+
+        <div className="space-y-1">
+          <p className="text-sm font-medium">
+            ৳ {service.basePrice}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Estimated duration: {service.estimatedDuration}
+          </p>
+        </div>
+
         <Link
           href={`/services/${service._id}`}
-          className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-[#15295e] text-sm font-medium text-white hover:bg-[#1e3a80]"
+          className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90"
         >
           View details
         </Link>

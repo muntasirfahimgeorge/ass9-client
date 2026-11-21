@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -12,12 +13,11 @@ type ServicesTableProps = {
   services: TService[];
 };
 
-// Table of the services the branch manager created.
 const ServicesTable = ({ services }: ServicesTableProps) => {
   if (services.length === 0) {
     return (
       <div className="rounded-xl border p-8 text-center text-sm text-muted-foreground">
-        You have not added any services yet. Click Add Service to create your first one.
+        You have not submitted any services yet.
       </div>
     );
   }
@@ -27,24 +27,39 @@ const ServicesTable = ({ services }: ServicesTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="pl-4">Name</TableHead>
-            <TableHead>Branch</TableHead>
-            <TableHead>Price</TableHead>
+            <TableHead className="pl-4">Service</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Base Price</TableHead>
             <TableHead>Duration</TableHead>
-            <TableHead>Slot</TableHead>
-            <TableHead className="pr-4">Features</TableHead>
+            <TableHead>Mode</TableHead>
+            <TableHead>Approval</TableHead>
+            <TableHead className="pr-4">Availability</TableHead>
           </TableRow>
         </TableHeader>
+
         <TableBody>
           {services.map((service) => (
             <TableRow key={service._id}>
-              <TableCell className="pl-4 font-medium">{service.name}</TableCell>
-              <TableCell>{service.branch}</TableCell>
-              <TableCell>৳ {service.price}</TableCell>
-              <TableCell>{service.duration} min</TableCell>
-              <TableCell>{service.slot || "—"}</TableCell>
+              <TableCell className="pl-4 font-medium">
+                {service.title}
+              </TableCell>
+
+              <TableCell>{service.category}</TableCell>
+
+              <TableCell>৳ {service.basePrice}</TableCell>
+
+              <TableCell>{service.estimatedDuration}</TableCell>
+
+              <TableCell>{service.serviceMode}</TableCell>
+
+              <TableCell>
+                <span className="capitalize">
+                  {service.approvalStatus}
+                </span>
+              </TableCell>
+
               <TableCell className="pr-4">
-                {service.keyFeatures.length}
+                {service.isAvailable ? "Available" : "Unavailable"}
               </TableCell>
             </TableRow>
           ))}

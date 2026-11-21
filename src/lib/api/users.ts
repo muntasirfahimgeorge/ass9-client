@@ -1,30 +1,49 @@
-import type { TAdminUser } from "@/types";
-import { API_BASE_URL } from "./config";
+
 import { headers } from "next/headers";
-import { auth } from "../auth";
+import { auth } from "@/lib/auth";
+import { API_BASE_URL } from "./config";
 
-// Returns every user from the backend.
-// Used by the admin users page (Server Component only).
-export async function getAllUsers(): Promise<TAdminUser[]> {
-  const jwtToken = await auth.api.getToken({ headers: await headers() });
-  if (!jwtToken) {
-    throw new Error("No token found. User must be logged in to fetch users.");
-  }
-  const token = jwtToken?.token;
-  console.log(token, 'jwt token');
+export type TFixMateRole = "customer" | "technician" | "admin";
 
-  const res = await fetch(`${API_BASE_URL}/users`, {
-    headers: {
-      "Content-Type": "application/json",
-      "authorization": `Bearer ${token}`
-    },
-    cache: "no-store"
+export type TFixMateAdminUser = {
+  _id: string;
+  name: string;
+  email: string;
+  role: TFixMateRole;
+  image?: string | null;
+  phone?: string;
+  area?: string;
+  bio?: string;
+  createdAt?: string | Date;
+  emailVerified?: boolean;
+};
+
+export async function getAllUsers(): Promise<TFixMateAdminUser[]> {
+  const requestHeaders = await headers();
+  const jwtToken = await auth.api.getToken({
+    headers: requestHeaders,
   });
 
-  if (!res.ok) {
-    throw new Error(`Could not load users (status ${res.status}).`);
+  if (!jwtToken?.token) {
+    throw new Error("Authentication token not found. Please sign in again.");
   }
 
-  const body = await res.json();
-  return body.data ?? [];
+  const res = await fetch(`${API_BASE_URL}/admin/users`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${jwtToken.token}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const body = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error(
+      body?.message || `Could not load users (status ${res.status}).`
+    );
+  }
+
+  return Array.isArray(body?.data) ? body.data : [];
 }

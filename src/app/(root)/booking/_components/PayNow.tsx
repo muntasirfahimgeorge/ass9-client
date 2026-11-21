@@ -1,49 +1,131 @@
+
 "use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
 import { createBooking } from "@/lib/action/booking";
-import { TCommonApiResponse, TService, TUser } from "@/types";
-import React from "react";
 
-const PayNowButton = ({
-  service,
-  user,
-}: {
-  service: TService;
-  user: TUser | null;
-}) => {
-  const handleCreateBooking = async () => {
-    // API call
+const RepairRequestForm = ({ serviceId }: { serviceId: string }) => {
+  const router = useRouter();
 
-    try {
-      const res = (await createBooking({
-        serviceId: service._id,
-        userEmail: user?.email || "",
-      })) as TCommonApiResponse<{ redirectUrl: string }>;
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
 
-      if (res.success) {
-        // Redirect to the checkout page
-        console.log(res, "res");
-        window.location.href = res.data.redirectUrl;
-      }
-    } catch (e: any) {
-      console.error("Error creating booking:", e);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-      toast.add({
-        title: e.message || "Booking failed",
-        description:
-          "Something went wrong while creating the booking. Please try again.",
-      });
+    setLoading(true);
+    setMessage("");
+    setSuccess(false);
+
+    const formData = new FormData(event.currentTarget);
+
+    const result = await createBooking({
+      serviceId,
+      customerPhone: String(formData.get("customerPhone") || "").trim(),
+      address: String(formData.get("address") || "").trim(),
+      preferredDate: String(formData.get("preferredDate") || ""),
+      problemDescription: String(
+        formData.get("problemDescription") || ""
+      ).trim(),
+    });
+
+    setLoading(false);
+    setMessage(result.message);
+
+    if (result.success) {
+      setSuccess(true);
+      event.currentTarget.reset();
+      router.push("/dashboard/customer/bookings");
+      router.refresh();
     }
   };
+
   return (
-    <Button
-      onClick={handleCreateBooking}
-      className="mt-4 w-full bg-[#15295e] text-white hover:bg-[#1e3a80]"
-    >
-      Pay Now
-    </Button>
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <h2 className="text-lg font-semibold">Repair Request Details</h2>
+
+      <div className="space-y-1">
+        <label htmlFor="customerPhone" className="text-sm font-medium">
+          Phone Number
+        </label>
+        <input
+          id="customerPhone"
+          name="customerPhone"
+          type="tel"
+          required
+          minLength={7}
+          maxLength={20}
+          placeholder="Enter your phone number"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="address" className="text-sm font-medium">
+          Repair Address
+        </label>
+        <textarea
+          id="address"
+          name="address"
+          required
+          minLength={5}
+          rows={3}
+          placeholder="Enter your full repair address"
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="preferredDate" className="text-sm font-medium">
+          Preferred Date
+        </label>
+        <input
+          id="preferredDate"
+          name="preferredDate"
+          type="date"
+          required
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="problemDescription" className="text-sm font-medium">
+          Describe the Problem
+        </label>
+        <textarea
+          id="problemDescription"
+          name="problemDescription"
+          required
+          minLength={20}
+          rows={4}
+          placeholder="Describe the device problem (at least 20 characters)"
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      {message && (
+        <p
+          role="status"
+          className={`text-sm ${
+            success ? "text-green-600" : "text-destructive"
+          }`}
+        >
+          {message}
+        </p>
+      )}
+
+      <Button type="submit" disabled={loading} className="w-full">
+        {loading ? "Submitting Request..." : "Submit Repair Request"}
+      </Button>
+
+      <p className="text-xs text-muted-foreground">
+        You will be able to pay after the technician completes your repair.
+      </p>
+    </form>
   );
 };
 
-export default PayNowButton;
+export default RepairRequestForm;

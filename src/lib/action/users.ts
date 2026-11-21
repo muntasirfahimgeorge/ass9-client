@@ -1,15 +1,15 @@
+
 "use server";
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api/config";
-import type { TUserRole } from "@/types";
+import type { TFixMateRole } from "@/lib/api/users";
 
 type UpdateUserInput = {
   userId: string;
-  role: TUserRole;
-  branch: string | null;
+  role: TFixMateRole;
 };
 
 type UpdateUserResult = {
@@ -17,44 +17,88 @@ type UpdateUserResult = {
   message: string;
 };
 
-// Changes one user's role and branch. Only admins can do this.
-// Called directly from the users table when an admin presses Save.
-export async function updateUser(input: UpdateUserInput): Promise<UpdateUserResult> {
-  // 1. Who is calling? Read the session on the server, never trust the browser.
-  const session = await auth.api.getSession({ headers: await headers() });
+const ALLOWED_ROLES: TFixMateRole[] = [
+  "customer",
+  "technician",
+  "admin",
+];
+
+export async function updateUser(
+  input: UpdateUserInput
+): Promise<UpdateUserResult> {
+  const requestHeaders = await headers();
+
+  const session = await auth.api.getSession({
+    headers: requestHeaders,
+  });
 
   if (!session || session.user.role !== "admin") {
-    return { success: false, message: "Only admins can change users." };
-  }
-
-  // 2. An admin cannot remove their own admin role, so the site always keeps an admin.
-  if (input.userId === session.user.id && input.role !== "admin") {
-    return { success: false, message: "You cannot remove your own admin role." };
-  }
-
-  // 3. Send the change to the Express backend.
-  let res;
-  try {
-    res = await fetch(`${API_BASE_URL}/users/${input.userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: input.role, branch: input.branch }),
-      cache: "no-store",
-    });
-  } catch {
-    return { success: false, message: "Could not reach the server. Please try again." };
-  }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
     return {
       success: false,
-      message: body?.message || "The server could not update this user.",
+      message: "Only administrators can change user roles.",
     };
   }
 
-  // 4. Refresh the page so the table shows the new values.
-  revalidatePath("/dashboard/admin/users");
+  if (!input.userId || !ALLOWED_ROLES.includes(input.role)) {
+    return {
+      success: false,
+      message: "Invalid user information.",
+    };
+  }
 
-  return { success: true, message: "The user was updated." };
+  if (input.userId === session.user.id) {
+    return {
+      success: false,
+      message: "You cannot change your own role.",
+    };
+  }
+
+  const jwtToken = await auth.api.getToken({
+    headers: requestHeaders,
+  });
+
+  if (!jwtToken?.token) {
+    return {
+      success: false,
+      message: "Authentication token not found. Please sign in again.",
+    };
+  }
+
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/admin/users/${encodeURIComponent(input.userId)}/role`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${jwtToken.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: input.role,
+        }),
+        cache: "no-store",
+      }
+    );
+
+    const body = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: body?.message || "The server could not update this user.",
+      };
+    }
+
+    revalidatePath("/dashboard/admin/users");
+
+    return {
+      success: true,
+      message: body?.message || "User role updated successfully.",
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Could not reach the server. Please try again.",
+    };
+  }
 }

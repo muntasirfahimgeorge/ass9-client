@@ -1,12 +1,11 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Building2,
   CalendarCheck,
   CalendarDays,
-  CarFront,
   ChevronsUpDown,
   Droplets,
   House,
@@ -40,31 +39,60 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/lib/auth-client";
-import { TDashboardSidebarItem, TUser, TUserRole } from "@/types";
+import type { TDashboardSidebarItem, TUser, TUserRole } from "@/types";
 
-const roleBasedSidebarItems = {
-  user: [
+const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
+  customer: [
     {
       title: "Dashboard",
-      href: "/dashboard/user",
+      href: "/dashboard/customer",
       icon: LayoutDashboard,
     },
     {
       title: "My Bookings",
-      href: "/dashboard/user/bookings",
+      href: "/dashboard/customer/bookings",
       icon: CalendarCheck,
     },
     {
       title: "Upcoming Bookings",
-      href: "/dashboard/user/bookings/upcoming",
+      href: "/dashboard/customer/bookings/upcoming",
       icon: CalendarDays,
     },
     {
       title: "My Profile",
-      href: "/dashboard/user/profile",
+      href: "/dashboard/customer/profile",
       icon: UserRound,
     },
   ],
+
+  technician: [
+    {
+      title: "Dashboard",
+      href: "/dashboard/technician",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "My Services",
+      href: "/dashboard/technician/services",
+      icon: Droplets,
+    },
+    {
+      title: "Bookings",
+      href: "/dashboard/technician/bookings",
+      icon: CalendarCheck,
+    },
+    {
+      title: "Upcoming Bookings",
+      href: "/dashboard/technician/bookings/upcoming",
+      icon: CalendarDays,
+    },
+    {
+      title: "My Profile",
+      href: "/dashboard/technician/profile",
+      icon: UserRound,
+    },
+  ],
+
   admin: [
     {
       title: "Dashboard",
@@ -77,19 +105,9 @@ const roleBasedSidebarItems = {
       icon: CalendarCheck,
     },
     {
-      title: "Upcoming Bookings",
-      href: "/dashboard/admin/bookings/upcoming",
-      icon: CalendarDays,
-    },
-    {
       title: "Users",
       href: "/dashboard/admin/users",
       icon: Users,
-    },
-    {
-      title: "Branches",
-      href: "/dashboard/admin/branches",
-      icon: Building2,
     },
     {
       title: "Services",
@@ -102,56 +120,25 @@ const roleBasedSidebarItems = {
       icon: UserRound,
     },
   ],
-  branchManager: [
-    {
-      title: "Dashboard",
-      href: "/dashboard/branchManager",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Services",
-      href: "/dashboard/branchManager/services",
-      icon: Droplets,
-    },
-    {
-      title: "Bookings",
-      href: "/dashboard/branchManager/bookings",
-      icon: CalendarCheck,
-    },
-    {
-      title: "Upcoming Bookings",
-      href: "/dashboard/branchManager/bookings/upcoming",
-      icon: CalendarDays,
-    },
-    {
-      title: "My Profile",
-      href: "/dashboard/branchManager/profile",
-      icon: UserRound,
-    },
-  ],
 };
 
 const isActivePath = (pathname: string, href: string) =>
-  href === "/dashboard"
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`);
+  pathname === href || pathname.startsWith(`${href}/`);
 
 const DashboardSidebar = ({ user }: { user: TUser | null }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const role = user?.role || "user"; // Default role
-  const sidebarItems = roleBasedSidebarItems[role as TUserRole] || [];
+  const role = user?.role;
+  const sidebarItems = role ? roleBasedSidebarItems[role] : [];
 
-  // console.log(sidebarItems, "sidebarItems");
-
-  // On mobile the sidebar is a sheet; close it after navigating.
   const closeMobile = () => setOpenMobile(false);
 
   const handleSignOut = async () => {
     await signOut();
     router.push("/signin");
+    router.refresh();
   };
 
   return (
@@ -161,21 +148,22 @@ const DashboardSidebar = ({ user }: { user: TUser | null }) => {
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip="PH Car Wash"
+              tooltip="FixMate"
               render={
                 <Link
-                  href={`/dashboard/${user?.role || "user"}`}
+                  href={role ? `/dashboard/${role}` : "/"}
                   onClick={closeMobile}
                 />
               }
             >
-              <div className="grid aspect-square size-8 place-items-center rounded-lg bg-[#15295e] text-[#ffc107]">
-                <CarFront />
+              <div className="grid aspect-square size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+                <Droplets />
               </div>
+
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate font-semibold">PH Car Wash</span>
+                <span className="truncate font-semibold">FixMate</span>
                 <span className="truncate text-xs text-sidebar-foreground/70">
-                  dashboard
+                  Repair Dashboard
                 </span>
               </div>
             </SidebarMenuButton>
@@ -187,7 +175,6 @@ const DashboardSidebar = ({ user }: { user: TUser | null }) => {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-           
               {sidebarItems.map((item: TDashboardSidebarItem) => {
                 const { title, href, icon: Icon } = item;
 
@@ -232,12 +219,14 @@ const DashboardSidebar = ({ user }: { user: TUser | null }) => {
                       {user.name}
                     </AvatarFallback>
                   </Avatar>
+
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
                     <span className="truncate text-xs text-sidebar-foreground/70">
                       {user.email}
                     </span>
                   </div>
+
                   <ChevronsUpDown className="ml-auto" />
                 </DropdownMenuTrigger>
 
@@ -248,23 +237,32 @@ const DashboardSidebar = ({ user }: { user: TUser | null }) => {
                   sideOffset={4}
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel className="truncate">
-                      Signed in as {user.role ? user.role : "user"}
+                    <DropdownMenuLabel className="truncate capitalize">
+                      Signed in as {user.role}
                     </DropdownMenuLabel>
+
                     <DropdownMenuItem
                       render={<Link href="/" onClick={closeMobile} />}
                     >
                       <House />
                       Back to site
                     </DropdownMenuItem>
+
                     <DropdownMenuItem
-                      render={<Link href="/profile" onClick={closeMobile} />}
+                      render={
+                        <Link
+                          href={role ? `/dashboard/${role}/profile` : "/"}
+                          onClick={closeMobile}
+                        />
+                      }
                     >
                       <UserRound />
                       My profile
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
+
                   <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut />
                     Sign out

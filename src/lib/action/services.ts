@@ -1,42 +1,83 @@
+
 "use server";
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api/config";
-import { BRANCHES, type TBranch } from "@/lib/branches";
 import type { TServiceField, TServiceFormState } from "@/types";
 
-// Roles allowed to create services. Checked on the server, never trusted from the form.
-const ALLOWED_ROLES = ["branchManager", "admin"];
+const ALLOWED_ROLES = ["technician"];
 
-// Creates a service in the Express backend (POST /services).
-// Called directly from the Add Service form's submit handler.
-export async function createService(formData: FormData): Promise<TServiceFormState> {
+const CATEGORIES = [
+  "Smartphone",
+  "Laptop & PC",
+  "AC",
+  "Refrigerator",
+  "TV",
+  "Washing Machine",
+  "Electrical",
+] as const;
+
+const SERVICE_MODES = ["Home Visit", "Shop Drop-off"] as const;
+
+type ServicePayload = {
+  title: string;
+  category: (typeof CATEGORIES)[number];
+  description: string;
+  image: string;
+  basePrice: number;
+  estimatedDuration: string;
+  serviceMode: (typeof SERVICE_MODES)[number];
+  serviceArea: string;
+};
+
+export async function createService(
+  formData: FormData
+): Promise<TServiceFormState> {
   try {
     return await saveService(formData);
   } catch (error) {
-    // Unexpected failure: log the full error for the developer, and show the user a plain message.
     console.error("createService failed:", error);
+
     return {
       success: false,
-      message: "Something went wrong while saving the service. Please try again.",
+      message: "Something went wrong while submitting the service.",
     };
   }
 }
 
-async function saveService(formData: FormData): Promise<TServiceFormState> {
-  // 1. Who is calling? Read the session on the server.
-  const session = await auth.api.getSession({ headers: await headers() });
+async function saveService(
+  formData: FormData
+): Promise<TServiceFormState> {
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({
+    headers: requestHeaders,
+  });
 
   if (!session || !ALLOWED_ROLES.includes(session.user.role ?? "")) {
-    return { success: false, message: "You are not allowed to add services." };
+    return {
+      success: false,
+      message: "Only technicians can submit services.",
+    };
   }
 
-  // 2. Read and validate the form fields.
+  const tokenResponse = await auth.api.getToken({
+    headers: requestHeaders,
+  });
+
+  const token = tokenResponse?.token;
+
+  if (!token) {
+    return {
+      success: false,
+      message: "Authentication token is unavailable. Please sign in again.",
+    };
+  }
+
   const { values, errors, data } = readServiceForm(formData);
 
-  if (data === null) {
+  if (!data) {
     return {
       success: false,
       message: "Please fix the highlighted fields.",
@@ -45,86 +86,110 @@ async function saveService(formData: FormData): Promise<TServiceFormState> {
     };
   }
 
-  // 3. Send to Express. createdBy comes from the verified session, not from the form.
   try {
-    const res = await fetch(`${API_BASE_URL}/services`, {
+    const response = await fetch(`${API_BASE_URL}/services`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...data, createdBy: session.user.email }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
       cache: "no-store",
     });
 
-    if (!res.ok) {
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
       return {
         success: false,
-        message: "The server could not save the service. Please try again.",
+        message:
+          body?.message ||
+          "The server could not submit the service. Please try again.",
         values,
       };
     }
-  } catch {
+
+    revalidatePath("/dashboard/technician/services");
+
+    return {
+      success: true,
+      message: `${data.title} was submitted for approval.`,
+    };
+  } catch (error) {
+    console.error("Service API request failed:", error);
+
     return {
       success: false,
       message: "Could not reach the server. Please try again.",
       values,
     };
   }
-
-  // 4. Refresh the page so the table shows the new service.
-  revalidatePath("/dashboard/branchManager/services");
-
-  return { success: true, message: `${data.name} was added.` };
 }
 
-// Reads the raw form values, checks them, and returns clean data when valid.
-// Returns data = null when any field is invalid.
-function readServiceForm(formData: FormData) {
+function readServiceForm(formData: FormData): {
+  values: Partial<Record<TServiceField, string>>;
+  errors: Partial<Record<TServiceField, string>>;
+  data: ServicePayload | null;
+} {
   const values: Partial<Record<TServiceField, string>> = {
-    name: String(formData.get("name") ?? "").trim(),
-    branch: String(formData.get("branch") ?? "").trim(),
-    image: String(formData.get("image") ?? "").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    category: String(formData.get("category") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
-    price: String(formData.get("price") ?? "").trim(),
-    duration: String(formData.get("duration") ?? "").trim(),
-    keyFeatures: String(formData.get("keyFeatures") ?? "").trim(),
-    slot: String(formData.get("slot") ?? "").trim(),
+    image: String(formData.get("image") ?? "").trim(),
+    basePrice: String(formData.get("basePrice") ?? "").trim(),
+    estimatedDuration: String(
+      formData.get("estimatedDuration") ?? ""
+    ).trim(),
+    serviceMode: String(formData.get("serviceMode") ?? "").trim(),
+    serviceArea: String(formData.get("serviceArea") ?? "").trim(),
   };
 
   const errors: Partial<Record<TServiceField, string>> = {};
 
-  if (!values.name) {
-    errors.name = "Service name is required.";
+  if (!values.title) {
+    errors.title = "Service title is required.";
   }
 
-  if (!BRANCHES.includes(values.branch as TBranch)) {
-    errors.branch = "Choose a valid branch.";
-  }
-
-  if (!isHttpUrl(values.image ?? "")) {
-    errors.image = "Enter a valid image URL starting with http:// or https://.";
+  if (
+    !CATEGORIES.includes(
+      values.category as (typeof CATEGORIES)[number]
+    )
+  ) {
+    errors.category = "Choose a valid service category.";
   }
 
   if (!values.description) {
     errors.description = "Description is required.";
   }
 
-  const price = Number(values.price);
-  if (values.price === "" || Number.isNaN(price) || price < 0) {
-    errors.price = "Price must be 0 or more.";
+  if (!isHttpUrl(values.image ?? "")) {
+    errors.image = "Enter a valid HTTP or HTTPS image URL.";
   }
 
-  const duration = Number(values.duration);
-  if (values.duration === "" || !Number.isInteger(duration) || duration <= 0) {
-    errors.duration = "Duration must be a whole number of minutes.";
+  const basePrice = Number(values.basePrice);
+
+  if (
+    values.basePrice === "" ||
+    !Number.isFinite(basePrice) ||
+    basePrice <= 0
+  ) {
+    errors.basePrice = "Base price must be greater than zero.";
   }
 
-  // One feature per line. Empty lines are ignored.
-  const keyFeatures = (values.keyFeatures ?? "")
-    .split("\n")
-    .map((feature) => feature.trim())
-    .filter(Boolean);
+  if (!values.estimatedDuration) {
+    errors.estimatedDuration = "Estimated duration is required.";
+  }
 
-  if (keyFeatures.length === 0) {
-    errors.keyFeatures = "Add at least one key feature (one per line).";
+  if (
+    !SERVICE_MODES.includes(
+      values.serviceMode as (typeof SERVICE_MODES)[number]
+    )
+  ) {
+    errors.serviceMode = "Choose a valid service mode.";
+  }
+
+  if (!values.serviceArea) {
+    errors.serviceArea = "Service area is required.";
   }
 
   if (Object.keys(errors).length > 0) {
@@ -135,19 +200,19 @@ function readServiceForm(formData: FormData) {
     values,
     errors,
     data: {
-      name: values.name as string,
-      branch: values.branch as TBranch,
-      image: values.image as string,
+      title: values.title as string,
+      category: values.category as ServicePayload["category"],
       description: values.description as string,
-      price,
-      duration,
-      keyFeatures,
-      slot: values.slot || undefined,
+      image: values.image as string,
+      basePrice,
+      estimatedDuration: values.estimatedDuration as string,
+      serviceMode: values.serviceMode as ServicePayload["serviceMode"],
+      serviceArea: values.serviceArea as string,
     },
   };
 }
 
-function isHttpUrl(value: string) {
+function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
