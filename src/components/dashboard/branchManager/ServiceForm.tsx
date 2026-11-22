@@ -1,25 +1,25 @@
+﻿"use client";
 
-"use client";
-
-import { useState, useTransition, type SyntheticEvent } from "react";
-import { AlertCircle } from "lucide-react";
+import { useState, useTransition, type ChangeEvent, type FormEvent } from "react";
+import Image from "next/image";
+import { AlertCircle, ImagePlus, Upload } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { createService } from "@/lib/action/services";
-import type { TServiceFormState } from "@/types";
+import {
+  createService,
+  updateService,
+  uploadServiceImage,
+} from "@/lib/action/services";
+import type { TService, TServiceFormState } from "@/types";
 
 type ServiceFormProps = {
   onSuccess: () => void;
+  service?: TService;
 };
 
 const categories = [
@@ -32,25 +32,59 @@ const categories = [
   "Electrical",
 ] as const;
 
-const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
+const ServiceForm = ({ onSuccess, service }: ServiceFormProps) => {
   const [isPending, startTransition] = useTransition();
+  const [isUploading, startUpload] = useTransition();
+  const [imageUrl, setImageUrl] = useState(service?.image ?? "");
   const [result, setResult] = useState<TServiceFormState | null>(null);
 
   const errors = result?.errors ?? {};
 
-  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData();
+    formData.append("image", file);
+
+    startUpload(async () => {
+      const response = await uploadServiceImage(formData);
+
+      if (response.success && response.url) {
+        setImageUrl(response.url);
+        setResult(null);
+        toast.add({
+          title: "Image uploaded",
+          description: "Your service image is ready.",
+        });
+      } else {
+        toast.add({
+          title: "Upload failed",
+          description: response.message,
+          type: "error",
+        });
+        event.target.value = "";
+      }
+    });
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    formData.set("image", imageUrl);
 
     startTransition(async () => {
       try {
-        const response = await createService(formData);
+        const response = service
+          ? await updateService(service._id, formData)
+          : await createService(formData);
+
         setResult(response);
 
         if (response.success) {
           toast.add({
-            title: "Service submitted",
+            title: service ? "Service updated" : "Service submitted",
             description: response.message,
           });
           onSuccess();
@@ -79,9 +113,11 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
           <Input
             id="title"
             name="title"
+            defaultValue={service?.title ?? ""}
             placeholder="Laptop motherboard repair"
+            maxLength={100}
             required
-            disabled={isPending}
+            disabled={isPending || isUploading}
             aria-invalid={!!errors.title || undefined}
           />
           <FieldError>{errors.title}</FieldError>
@@ -93,34 +129,65 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
             id="category"
             name="category"
             required
-            disabled={isPending}
+            disabled={isPending || isUploading}
             aria-invalid={!!errors.category || undefined}
-            defaultValue=""
+            defaultValue={service?.category ?? ""}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="" disabled>
-              Select a category
-            </option>
+            <option value="" disabled>Select a category</option>
             {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
+              <option key={category} value={category}>{category}</option>
             ))}
           </select>
           <FieldError>{errors.category}</FieldError>
         </Field>
 
         <Field data-invalid={!!errors.image || undefined}>
-          <FieldLabel htmlFor="image">Service image URL</FieldLabel>
-          <Input
-            id="image"
-            name="image"
-            type="url"
-            placeholder="https://example.com/service.jpg"
-            required
-            disabled={isPending}
-            aria-invalid={!!errors.image || undefined}
-          />
+          <FieldLabel htmlFor="service-image">Service image</FieldLabel>
+          <div className="rounded-lg border border-dashed p-4">
+            {imageUrl ? (
+              <div className="relative mb-3 h-44 w-full overflow-hidden rounded-md bg-muted">
+                <Image
+                  src={imageUrl}
+                  alt="Service preview"
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 500px"
+                />
+              </div>
+            ) : (
+              <div className="mb-3 flex h-32 flex-col items-center justify-center gap-2 rounded-md bg-muted text-muted-foreground">
+                <ImagePlus className="size-8" />
+                <span className="text-sm">No image selected</span>
+              </div>
+            )}
+
+            <Input
+              id="service-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageChange}
+              disabled={isPending || isUploading}
+            />
+
+            <p className="mt-2 text-xs text-muted-foreground">
+              JPG, PNG or WebP. Maximum file size: 5 MB.
+            </p>
+
+            {isUploading && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner /> Uploading image...
+              </div>
+            )}
+
+            {imageUrl && (
+              <p className="mt-2 break-all text-xs text-green-700">
+                Image uploaded successfully.
+              </p>
+            )}
+          </div>
+          <input type="hidden" name="image" value={imageUrl} />
           <FieldError>{errors.image}</FieldError>
         </Field>
 
@@ -130,9 +197,10 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
             id="description"
             name="description"
             rows={4}
+            defaultValue={service?.description ?? ""}
             placeholder="Describe the repair service..."
             required
-            disabled={isPending}
+            disabled={isPending || isUploading}
             aria-invalid={!!errors.description || undefined}
           />
           <FieldError>{errors.description}</FieldError>
@@ -140,31 +208,31 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={!!errors.basePrice || undefined}>
-            <FieldLabel htmlFor="basePrice">Base price (৳)</FieldLabel>
+            <FieldLabel htmlFor="basePrice">Base price (USD)</FieldLabel>
             <Input
               id="basePrice"
               name="basePrice"
               type="number"
               min="0.01"
               step="0.01"
-              placeholder="500"
+              defaultValue={service?.basePrice ?? ""}
+              placeholder="25"
               required
-              disabled={isPending}
+              disabled={isPending || isUploading}
               aria-invalid={!!errors.basePrice || undefined}
             />
             <FieldError>{errors.basePrice}</FieldError>
           </Field>
 
           <Field data-invalid={!!errors.estimatedDuration || undefined}>
-            <FieldLabel htmlFor="estimatedDuration">
-              Estimated duration
-            </FieldLabel>
+            <FieldLabel htmlFor="estimatedDuration">Estimated duration</FieldLabel>
             <Input
               id="estimatedDuration"
               name="estimatedDuration"
+              defaultValue={service?.estimatedDuration ?? ""}
               placeholder="30-45 minutes"
               required
-              disabled={isPending}
+              disabled={isPending || isUploading}
               aria-invalid={!!errors.estimatedDuration || undefined}
             />
             <FieldError>{errors.estimatedDuration}</FieldError>
@@ -177,14 +245,12 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
             id="serviceMode"
             name="serviceMode"
             required
-            disabled={isPending}
-            defaultValue=""
+            disabled={isPending || isUploading}
+            defaultValue={service?.serviceMode ?? ""}
             aria-invalid={!!errors.serviceMode || undefined}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="" disabled>
-              Select service mode
-            </option>
+            <option value="" disabled>Select service mode</option>
             <option value="Home Visit">Home Visit</option>
             <option value="Shop Drop-off">Shop Drop-off</option>
           </select>
@@ -196,9 +262,10 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
           <Input
             id="serviceArea"
             name="serviceArea"
+            defaultValue={service?.serviceArea ?? ""}
             placeholder="Dhanmondi, Dhaka"
             required
-            disabled={isPending}
+            disabled={isPending || isUploading}
             aria-invalid={!!errors.serviceArea || undefined}
           />
           <FieldError>{errors.serviceArea}</FieldError>
@@ -207,14 +274,15 @@ const ServiceForm = ({ onSuccess }: ServiceFormProps) => {
         <div className="flex justify-end pt-2">
           <Button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || isUploading || !imageUrl}
             className="bg-[#15295e] text-white hover:bg-[#1e3a80]"
           >
             {isPending ? (
-              <>
-                <Spinner />
-                Submitting...
-              </>
+              <><Spinner /> Saving...</>
+            ) : isUploading ? (
+              <><Upload /> Uploading...</>
+            ) : service ? (
+              "Save changes"
             ) : (
               "Submit service"
             )}

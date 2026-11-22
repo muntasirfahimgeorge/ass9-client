@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useState } from "react";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,10 +11,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { TService } from "@/types";
 import ServiceForm from "./ServiceForm";
 
-// "Add Service" button and the modal that holds the form.
-const AddServiceDialog = () => {
+type Props = {
+  service?: TService;
+};
+
+const AddServiceDialog = ({ service }: Props) => {
   const [open, setOpen] = useState(false);
   const handleSuccess = useCallback(() => setOpen(false), []);
 
@@ -22,22 +26,34 @@ const AddServiceDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button className="h-9 bg-[#15295e] text-white hover:bg-[#1e3a80]" />
+          <Button
+            variant={service ? "outline" : "default"}
+            className={service ? "" : "bg-[#15295e] text-white hover:bg-[#1e3a80]"}
+          />
         }
       >
-        <Plus data-icon="inline-start" />
-        Add Service
+        {service ? (
+          <><Pencil data-icon="inline-start" /> Edit</>
+        ) : (
+          <><Plus data-icon="inline-start" /> Add Service</>
+        )}
       </DialogTrigger>
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add a service</DialogTitle>
+          <DialogTitle>{service ? "Edit service" : "Add a service"}</DialogTitle>
           <DialogDescription>
-            Create a service for your branch. It will appear in your table.
+            {service
+              ? "Update your service information. Editing will send it for admin approval again."
+              : "Create a repair service. New services require admin approval before appearing publicly."}
           </DialogDescription>
         </DialogHeader>
 
-        <ServiceForm onSuccess={handleSuccess} />
+        <ServiceForm
+          key={service?._id ?? "new-service"}
+          service={service}
+          onSuccess={handleSuccess}
+        />
       </DialogContent>
     </Dialog>
   );
