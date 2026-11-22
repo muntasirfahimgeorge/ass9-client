@@ -4,7 +4,7 @@ FixMate is a full-stack web application that connects customers with technicians
 
 ## Live Website
 
-**Live URL:** `https://YOUR_DEPLOYED_FRONTEND_URL`
+**Live URL:** https://ass9-client.vercel.app/
 
 ## Project Repositories
 
@@ -89,7 +89,7 @@ Do not commit private API keys, database credentials, authentication secrets, or
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open http://localhost:3000 in your browser.
 
 ### 5. Build for production
 
@@ -127,15 +127,11 @@ FixMate integrates Stripe Checkout in test mode.
 
 Customers can proceed to payment after their repair job has been completed and the final amount has been set.
 
-## Test Credentials
+## Test Accounts
 
-Add the actual working test accounts before submission.
+Working Admin, Technician, and Customer test account credentials are provided separately for assignment evaluation.
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | `ADD_ADMIN_EMAIL` | `ADD_ADMIN_PASSWORD` |
-| Technician | `ADD_TECHNICIAN_EMAIL` | `ADD_TECHNICIAN_PASSWORD` |
-| Customer | `ADD_CUSTOMER_EMAIL` | `ADD_CUSTOMER_PASSWORD` |
+For security reasons, passwords and private credentials are not published in this public repository.
 
 ## Project Purpose
 
