@@ -1,10 +1,11 @@
+
 import type { Metadata } from "next";
 import SignupForm from "@/components/auth/SignupForm";
 
 export const metadata: Metadata = {
-  title: "Create account | PH Car Wash",
+  title: "Create account | FixMate",
   description:
-    "Create a PH Car Wash account to book washes and track your service history.",
+    "Create a FixMate account to book device and home appliance repair services.",
 };
 
 const SignupPage = () => {

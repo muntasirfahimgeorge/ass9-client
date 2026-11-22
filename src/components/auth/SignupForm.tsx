@@ -1,24 +1,16 @@
+﻿
 "use client";
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import {
-  AlertCircle,
-  ArrowRight,
-  ImageIcon,
-  Mail,
-  UserRound,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, Mail, User } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
-  FieldDescription,
-  FieldError,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field";
 import {
   InputGroup,
@@ -26,58 +18,99 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import GoogleButton from "./GoogleButton";
 import PasswordInput from "./PasswordInput";
 import { signUp } from "@/lib/auth-client";
 import { toast } from "../ui/toast";
-import { useRouter } from "next/navigation";
+import { getDashboardPath } from "@/lib/auth/redirect";
 
-const MIN_PASSWORD_LENGTH = 8; // Better Auth's default minPasswordLength
+type RegistrationRole = "customer" | "technician";
 
 const SignupForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [passwordMismatch, setPasswordMismatch] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isLoading) return;
+
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(event.currentTarget);
+
     const name = String(formData.get("name") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
-    const image = String(formData.get("image") ?? "").trim();
     const password = String(formData.get("password") ?? "");
-    const confirmPassword = String(formData.get("confirmPassword") ?? "");
+    const confirmPassword = String(
+      formData.get("confirmPassword") ?? ""
+    );
+    const selectedRole = String(formData.get("role") ?? "customer");
 
-    if (password !== confirmPassword) {
-      setPasswordMismatch(true);
+    if (name.length < 2 || name.length > 80) {
+      setError("Name must be between 2 and 80 characters.");
       return;
     }
 
-    const payload = { name, email, password, image };
+    if (password.length < 8 || password.length > 128) {
+      setError("Password must be between 8 and 128 characters.");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
+      setError(
+        "Password must contain at least one uppercase and one lowercase letter."
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (
+      selectedRole !== "customer" &&
+      selectedRole !== "technician"
+    ) {
+      setError("Please select a valid account type.");
+      return;
+    }
+
+    const role: RegistrationRole = selectedRole;
 
     setIsLoading(true);
+
     try {
-      const { data, error } = await signUp.email({
-        name: name, // required, The name of the user.
-        email: email, // required, The email address of the user.
-        password: password, // required, The password of the user. It should be at least 8 characters long and max 128 by default.
-        image: image || undefined, // An optional profile image of the user.
-        callbackURL: "/", // An optional URL to redirect to after the user signs up.
+      const { data, error: signUpError } = await signUp.email({
+        name,
+        email,
+        password,
+        role,
       });
 
-      if (error)
-        return setError(error.message ?? "Could not create your account.");
+      if (signUpError) {
+        setError(
+          signUpError.message ?? "Unable to create your account."
+        );
+        return;
+      }
+
+      if (!data?.user) {
+        setError("Account creation was unsuccessful. Please try again.");
+        return;
+      }
 
       toast.add({
-        title: `Hello ${data.user?.name}, Account created`,
-        description: "Your account has been created successfully.",
+        title: "Account created successfully!",
+        description: `Welcome to FixMate as a ${role}.`,
       });
-      router.push("/")
-      console.log({ data, error });
-      //   console.log("Sign up submitted:", { ...payload, password: "[hidden]" });
+
+      const dashboardPath =
+        getDashboardPath(data.user.role) ?? "/dashboard";
+
+      router.replace(dashboardPath);
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -88,11 +121,16 @@ const SignupForm = () => {
   return (
     <div className="flex flex-col gap-8">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-[#15295e] sm:text-3xl">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#769C29]">
+          Get started with FixMate
+        </span>
+
+        <h1 className="text-3xl font-bold tracking-tight text-[#14243A]">
           Create your account
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Join PH Car Wash to book washes and track your service history.
+
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Join FixMate to book repairs and manage your service requests.
         </p>
       </div>
 
@@ -105,34 +143,36 @@ const SignupForm = () => {
             </Alert>
           )}
 
-          <GoogleButton label="Sign up with Google" disabled={isLoading} />
-
-          <FieldSeparator>or sign up with email</FieldSeparator>
-
           <Field>
             <FieldLabel htmlFor="name">Full name</FieldLabel>
-            <InputGroup className="h-10">
+
+            <InputGroup className="h-11">
               <InputGroupAddon>
-                <UserRound />
+                <User />
               </InputGroupAddon>
+
               <InputGroupInput
                 id="name"
                 name="name"
                 type="text"
                 autoComplete="name"
-                placeholder="John Doe"
+                placeholder="Your full name"
                 required
+                minLength={2}
+                maxLength={80}
                 disabled={isLoading}
               />
             </InputGroup>
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <InputGroup className="h-10">
+            <FieldLabel htmlFor="email">Email address</FieldLabel>
+
+            <InputGroup className="h-11">
               <InputGroupAddon>
                 <Mail />
               </InputGroupAddon>
+
               <InputGroupInput
                 id="email"
                 name="email"
@@ -146,81 +186,68 @@ const SignupForm = () => {
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="image">Profile image URL</FieldLabel>
-            <InputGroup className="h-10">
-              <InputGroupAddon>
-                <ImageIcon />
-              </InputGroupAddon>
-              <InputGroupInput
-                id="image"
-                name="image"
-                type="url"
-                autoComplete="url"
-                placeholder="https://example.com/image.png"
-                disabled={isLoading}
-              />
-            </InputGroup>
+            <FieldLabel htmlFor="role">Register as</FieldLabel>
+
+            <select
+              id="role"
+              name="role"
+              defaultValue="customer"
+              disabled={isLoading}
+              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="customer">
+                Customer — Book repair services
+              </option>
+
+              <option value="technician">
+                Technician — Provide repair services
+              </option>
+            </select>
           </Field>
 
           <Field>
             <FieldLabel htmlFor="password">Password</FieldLabel>
+
             <PasswordInput
               id="password"
               name="password"
               autoComplete="new-password"
-              minLength={MIN_PASSWORD_LENGTH}
               required
+              minLength={8}
+              maxLength={128}
               disabled={isLoading}
-              aria-describedby="password-hint"
             />
-            <FieldDescription id="password-hint">
-              Must be at least {MIN_PASSWORD_LENGTH} characters.
-            </FieldDescription>
+
+            <p className="text-xs text-muted-foreground">
+              Use 8–128 characters with at least one uppercase and one lowercase letter.
+            </p>
           </Field>
 
-          <Field data-invalid={passwordMismatch || undefined}>
-            <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
+          <Field>
+            <FieldLabel htmlFor="confirmPassword">
+              Confirm password
+            </FieldLabel>
+
             <PasswordInput
               id="confirmPassword"
               name="confirmPassword"
               autoComplete="new-password"
               required
+              minLength={8}
+              maxLength={128}
               disabled={isLoading}
-              aria-invalid={passwordMismatch || undefined}
-              aria-describedby={
-                passwordMismatch ? "confirm-password-error" : undefined
-              }
-              onChange={() => passwordMismatch && setPasswordMismatch(false)}
             />
-            {passwordMismatch && (
-              <FieldError id="confirm-password-error">
-                Passwords don&apos;t match.
-              </FieldError>
-            )}
-          </Field>
-
-          <Field orientation="horizontal">
-            <Checkbox
-              id="terms"
-              name="terms"
-              required
-              disabled={isLoading}
-              className="data-checked:border-[#15295e] data-checked:bg-[#15295e]"
-            />
-            <FieldLabel htmlFor="terms" className="leading-snug font-normal">
-              I agree to the Terms of Service and Privacy Policy
-            </FieldLabel>
           </Field>
 
           <Button
             type="submit"
             disabled={isLoading}
-            className="h-10 w-full bg-[#15295e] text-sm text-white hover:bg-[#1e3a80]"
+            className="h-11 w-full bg-[#14243A] text-sm font-semibold text-white hover:bg-[#203A57]"
           >
             {isLoading ? (
               <>
                 <Spinner />
-                Creating account…
+                Creating account...
               </>
             ) : (
               <>
@@ -236,7 +263,7 @@ const SignupForm = () => {
         Already have an account?{" "}
         <Link
           href="/signin"
-          className="font-medium text-[#15295e] underline-offset-4 hover:underline"
+          className="font-semibold text-[#557C17] underline-offset-4 hover:underline"
         >
           Sign in
         </Link>

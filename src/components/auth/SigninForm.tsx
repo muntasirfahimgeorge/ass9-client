@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +12,6 @@ import {
   Field,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field";
 import {
   InputGroup,
@@ -18,22 +19,28 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import GoogleButton from "./GoogleButton";
 import PasswordInput from "./PasswordInput";
 import { signIn } from "@/lib/auth-client";
 import { toast } from "../ui/toast";
-import { useRouter } from "next/navigation";
+import {
+  getDashboardPath,
+  getSafeInternalRedirect,
+} from "@/lib/auth/redirect";
 
 const SigninForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isLoading) return;
+
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(event.currentTarget);
+
     const payload = {
       email: String(formData.get("email") ?? "").trim(),
       password: String(formData.get("password") ?? ""),
@@ -41,18 +48,39 @@ const SigninForm = () => {
     };
 
     setIsLoading(true);
+
     try {
-      const { data, error } = await signIn.email(payload);
-      if (error) return setError(error.message ?? "Invalid email or password.");
-      console.log({ data, error });
-      if (data?.user) {
-        toast.add({
-          title: `Hello ${data.user?.name}, welcome back!`,
-          description: "You have been signed in successfully.",
-        });
-        router.push("/");
+      const { data, error: signInError } = await signIn.email(payload);
+
+      if (signInError) {
+        setError(
+          signInError.message ?? "Invalid email or password."
+        );
+        return;
       }
-      console.log("Sign in submitted:", { ...payload, password: "[hidden]" });
+
+      if (!data?.user) {
+        setError("Unable to sign in. Please try again.");
+        return;
+      }
+
+      const callbackURL = new URLSearchParams(
+        window.location.search
+      ).get("callbackURL");
+
+      const requestedPath = getSafeInternalRedirect(callbackURL);
+      const dashboardPath = getDashboardPath(data.user.role);
+
+      const destination =
+        requestedPath ?? dashboardPath ?? "/dashboard";
+
+      toast.add({
+        title: `Hello ${data.user.name}, welcome back!`,
+        description: "You have been signed in successfully.",
+      });
+
+      router.replace(destination);
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -63,11 +91,16 @@ const SigninForm = () => {
   return (
     <div className="flex flex-col gap-8">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-[#15295e] sm:text-3xl">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#769C29]">
+          Welcome to FixMate
+        </span>
+
+        <h1 className="text-3xl font-bold tracking-tight text-[#14243A]">
           Welcome back
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Sign in to book a wash and manage your appointments.
+
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Sign in to book repair services and manage your appointments.
         </p>
       </div>
 
@@ -81,11 +114,15 @@ const SigninForm = () => {
           )}
 
           <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <InputGroup className="h-10">
+            <FieldLabel htmlFor="email">
+              Email address
+            </FieldLabel>
+
+            <InputGroup className="h-11">
               <InputGroupAddon>
                 <Mail />
               </InputGroupAddon>
+
               <InputGroupInput
                 id="email"
                 name="email"
@@ -99,15 +136,10 @@ const SigninForm = () => {
           </Field>
 
           <Field>
-            <div className="flex items-center justify-between">
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-[#15295e] underline-offset-4 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            <FieldLabel htmlFor="password">
+              Password
+            </FieldLabel>
+
             <PasswordInput
               id="password"
               name="password"
@@ -123,9 +155,13 @@ const SigninForm = () => {
               name="rememberMe"
               defaultChecked
               disabled={isLoading}
-              className="data-checked:border-[#15295e] data-checked:bg-[#15295e]"
+              className="data-checked:border-[#14243A] data-checked:bg-[#14243A]"
             />
-            <FieldLabel htmlFor="rememberMe" className="font-normal">
+
+            <FieldLabel
+              htmlFor="rememberMe"
+              className="font-normal"
+            >
               Keep me signed in
             </FieldLabel>
           </Field>
@@ -133,12 +169,12 @@ const SigninForm = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="h-10 w-full bg-[#15295e] text-sm text-white hover:bg-[#1e3a80]"
+            className="h-11 w-full bg-[#14243A] text-sm font-semibold text-white hover:bg-[#203A57]"
           >
             {isLoading ? (
               <>
                 <Spinner />
-                Signing in…
+                Signing in...
               </>
             ) : (
               <>
@@ -147,10 +183,6 @@ const SigninForm = () => {
               </>
             )}
           </Button>
-
-          <FieldSeparator>or</FieldSeparator>
-
-          <GoogleButton disabled={isLoading} />
         </FieldGroup>
       </form>
 
@@ -158,9 +190,9 @@ const SigninForm = () => {
         Don&apos;t have an account?{" "}
         <Link
           href="/signup"
-          className="font-medium text-[#15295e] underline-offset-4 hover:underline"
+          className="font-semibold text-[#557C17] underline-offset-4 hover:underline"
         >
-          Create one
+          Create an account
         </Link>
       </p>
     </div>
