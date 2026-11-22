@@ -51,7 +51,9 @@ export default async function ServiceDetailsPage({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg border p-3">
               <p className="text-muted-foreground">Base Price</p>
-              <p className="font-semibold">৳ {service.basePrice}</p>
+              <p className="font-semibold">
+  ${Number(service.basePrice).toLocaleString("en-US")}
+</p>
             </div>
 
             <div className="rounded-lg border p-3">

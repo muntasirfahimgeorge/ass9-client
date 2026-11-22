@@ -83,3 +83,35 @@ export type TDashboardSidebarItem = {
   icon: LucideIcon;
   roles?: TUserRole[];
 };
+
+export type TBookingStatus =
+  | "requested"
+  | "accepted"
+  | "rejected"
+  | "in-progress"
+  | "completed"
+  | "cancelled";
+
+export type TPaymentStatus = "unpaid" | "paid";
+
+export type TBooking = {
+  _id: string;
+  serviceId: string;
+  serviceTitle: string;
+  serviceImage: string;
+  category: TServiceCategory;
+  basePrice: number;
+  finalAmount: number;
+  technicianName: string;
+  technicianEmail: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  address: string;
+  preferredDate: string | Date;
+  problemDescription: string;
+  status: TBookingStatus;
+  paymentStatus: TPaymentStatus;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+};
