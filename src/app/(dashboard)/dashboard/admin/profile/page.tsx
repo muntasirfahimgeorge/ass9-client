@@ -1,3 +1,9 @@
-export default function AdminProfilePage() {
-  return <h2>My Profile</h2>;
+
+import { getMyProfile } from "@/lib/api/profile";
+import ProfileForm from "@/components/dashboard/shared/ProfileForm";
+
+export default async function AdminProfilePage() {
+  const profile = await getMyProfile();
+
+  return <ProfileForm profile={profile} />;
 }
