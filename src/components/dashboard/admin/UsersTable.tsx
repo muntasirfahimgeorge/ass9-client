@@ -1,6 +1,7 @@
 
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -116,11 +117,16 @@ const UserRow = ({
       <TableCell className="pl-4 font-medium">
         <div className="flex items-center gap-2">
           {user.image ? (
-            <img
-              src={user.image}
-              alt=""
-              className="size-9 rounded-full object-cover"
-            />
+            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-muted">
+              <Image
+                src={user.image}
+                alt={user.name || "User profile"}
+                fill
+                unoptimized
+                sizes="36px"
+                className="object-cover"
+              />
+            </div>
           ) : (
             <div className="grid size-9 place-items-center rounded-full bg-muted text-sm font-semibold">
               {user.name?.charAt(0)?.toUpperCase() || "U"}
