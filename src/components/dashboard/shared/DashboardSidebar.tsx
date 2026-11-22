@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import Link from "next/link";
@@ -6,40 +6,44 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarCheck,
   CalendarDays,
+  CreditCard,
   ChevronsUpDown,
-  Droplets,
+  Wrench,
   House,
   LayoutDashboard,
   LogOut,
   UserRound,
   Users,
 } from "lucide-react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/lib/auth-client";
-import type { TDashboardSidebarItem, TUser, TUserRole } from "@/types";
+
+type TUserRole = "customer" | "technician" | "admin";
+
+type TDashboardSidebarItem = {
+  title: string;
+  href: string;
+  icon: React.ElementType;
+};
+
+type TDashboardUser = {
+  name: string;
+  email: string;
+  image?: string | null;
+  role: string;
+} | null;
 
 const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
   customer: [
@@ -51,12 +55,17 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
     {
       title: "My Bookings",
       href: "/dashboard/customer/bookings",
-      icon: CalendarCheck,
+      icon: CalendarDays,
     },
     {
       title: "Upcoming Bookings",
       href: "/dashboard/customer/bookings/upcoming",
-      icon: CalendarDays,
+      icon: CalendarCheck,
+    },
+    {
+      title: "Payments",
+      href: "/dashboard/customer/payments",
+      icon: CreditCard,
     },
     {
       title: "My Profile",
@@ -64,7 +73,6 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
       icon: UserRound,
     },
   ],
-
   technician: [
     {
       title: "Dashboard",
@@ -74,17 +82,17 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
     {
       title: "My Services",
       href: "/dashboard/technician/services",
-      icon: Droplets,
+      icon: Wrench,
     },
     {
       title: "Bookings",
       href: "/dashboard/technician/bookings",
-      icon: CalendarCheck,
+      icon: CalendarDays,
     },
     {
       title: "Upcoming Bookings",
       href: "/dashboard/technician/bookings/upcoming",
-      icon: CalendarDays,
+      icon: CalendarCheck,
     },
     {
       title: "My Profile",
@@ -92,7 +100,6 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
       icon: UserRound,
     },
   ],
-
   admin: [
     {
       title: "Dashboard",
@@ -100,19 +107,24 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
       icon: LayoutDashboard,
     },
     {
+      title: "Services",
+      href: "/dashboard/admin/services",
+      icon: Wrench,
+    },
+    {
       title: "Bookings",
       href: "/dashboard/admin/bookings",
       icon: CalendarCheck,
     },
     {
+      title: "Payments",
+      href: "/dashboard/admin/payments",
+      icon: CreditCard,
+    },
+    {
       title: "Users",
       href: "/dashboard/admin/users",
       icon: Users,
-    },
-    {
-      title: "Services",
-      href: "/dashboard/admin/services",
-      icon: Droplets,
     },
     {
       title: "My Profile",
@@ -122,71 +134,78 @@ const roleBasedSidebarItems: Record<TUserRole, TDashboardSidebarItem[]> = {
   ],
 };
 
-const isActivePath = (pathname: string, href: string) =>
-  pathname === href || pathname.startsWith(`${href}/`);
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
-const DashboardSidebar = ({ user }: { user: TUser | null }) => {
+export default function DashboardSidebar({
+  user,
+}: {
+  user: TDashboardUser;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const role = user?.role;
-  const sidebarItems = role ? roleBasedSidebarItems[role] : [];
+  const role: TUserRole =
+    user?.role === "admin" || user?.role === "technician"
+      ? user.role
+      : "customer";
 
-  const closeMobile = () => setOpenMobile(false);
+  const sidebarItems = roleBasedSidebarItems[role];
+
+  const handleNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/signin");
-    router.refresh();
+    try {
+      await signOut();
+      router.replace("/signin");
+      router.refresh();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    }
   };
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              tooltip="FixMate"
-              render={
-                <Link
-                  href={role ? `/dashboard/${role}` : "/"}
-                  onClick={closeMobile}
-                />
-              }
-            >
-              <div className="grid aspect-square size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-                <Droplets />
-              </div>
-
-              <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate font-semibold">FixMate</span>
-                <span className="truncate text-xs text-sidebar-foreground/70">
-                  Repair Dashboard
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <Link
+          href="/"
+          onClick={handleNavigation}
+          className="flex items-center gap-3 px-2 py-3"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#B8F34A] text-[#14243A]">
+            <Wrench size={21} strokeWidth={2.5} />
+          </span>
+          <span className="text-xl font-extrabold tracking-tight">
+            Fix<span className="text-[#B8F34A]">Mate</span>
+          </span>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sidebarItems.map((item: TDashboardSidebarItem) => {
-                const { title, href, icon: Icon } = item;
+              {sidebarItems.map((item) => {
+                const active = isActivePath(pathname, item.href);
 
                 return (
-                  <SidebarMenuItem key={href}>
+                  <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      tooltip={title}
-                      isActive={isActivePath(pathname, href)}
-                      render={<Link href={href} onClick={closeMobile} />}
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
                     >
-                      <Icon />
-                      <span>{title}</span>
+                      <Link href={item.href} onClick={handleNavigation}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -196,87 +215,43 @@ const DashboardSidebar = ({ user }: { user: TUser | null }) => {
         </SidebarGroup>
       </SidebarContent>
 
-      {user && (
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <SidebarMenuButton
-                      size="lg"
-                      className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
-                    />
-                  }
-                >
-                  <Avatar className="rounded-lg after:rounded-lg">
-                    <AvatarImage
-                      src={user.image ?? undefined}
-                      alt={user.name}
-                      className="rounded-lg"
-                    />
-                    <AvatarFallback className="rounded-lg">
-                      {user.name}
-                    </AvatarFallback>
-                  </Avatar>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Back to website">
+              <Link href="/" onClick={handleNavigation}>
+                <House />
+                <span>Back to Website</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
 
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.name}</span>
-                    <span className="truncate text-xs text-sidebar-foreground/70">
-                      {user.email}
-                    </span>
-                  </div>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={handleSignOut}
+              tooltip="Sign out"
+            >
+              <LogOut />
+              <span>Sign Out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
-                  <ChevronsUpDown className="ml-auto" />
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent
-                  className="min-w-56"
-                  side={isMobile ? "bottom" : "right"}
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="truncate capitalize">
-                      Signed in as {user.role}
-                    </DropdownMenuLabel>
-
-                    <DropdownMenuItem
-                      render={<Link href="/" onClick={closeMobile} />}
-                    >
-                      <House />
-                      Back to site
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      render={
-                        <Link
-                          href={role ? `/dashboard/${role}/profile` : "/"}
-                          onClick={closeMobile}
-                        />
-                      }
-                    >
-                      <UserRound />
-                      My profile
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      )}
-
-      <SidebarRail />
+        {user && (
+          <div className="flex items-center gap-3 border-t p-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#B8F34A] font-bold text-[#14243A]">
+              {user.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {user.role}
+              </p>
+            </div>
+            <ChevronsUpDown className="size-4 shrink-0 group-data-[collapsible=icon]:hidden" />
+          </div>
+        )}
+      </SidebarFooter>
     </Sidebar>
   );
-};
-
-export default DashboardSidebar;
+}
