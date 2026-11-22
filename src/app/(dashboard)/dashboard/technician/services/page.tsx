@@ -1,42 +1,58 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+﻿import { Wrench, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import AddServiceDialog from "@/components/dashboard/branchManager/AddServiceDialog";
 import ServicesTable from "@/components/dashboard/branchManager/ServicesTable";
-import { getServices } from "@/lib/api/services";
-import { auth } from "@/lib/auth";
+import { getMyServices } from "@/lib/api/technician-services";
 
-const ALLOWED_ROLES = ["branchManager", "admin"];
+export default async function TechnicianServicesPage() {
+  const services = await getMyServices();
 
-export default async function BranchManagerServicesPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const approved = services.filter((service) => service.approvalStatus === "approved").length;
+  const pending = services.filter((service) => service.approvalStatus === "pending").length;
+  const rejected = services.filter((service) => service.approvalStatus === "rejected").length;
 
-  if (!session) {
-    redirect("/signin");
-  }
-
-  const role = session.user.role ?? "user";
-
-  if (!ALLOWED_ROLES.includes(role)) {
-    redirect(`/dashboard/${role}`);
-  }
-
-  const services = await getServices();
+  const stats = [
+    { label: "Total services", value: services.length, icon: Wrench },
+    { label: "Approved", value: approved, icon: CheckCircle2 },
+    { label: "Pending review", value: pending, icon: Clock3 },
+    { label: "Rejected", value: rejected, icon: XCircle },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[#15295e]">
-            My Services
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Services you have created for your branch.
+          <h1 className="text-2xl font-bold tracking-tight">My Services</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create and manage your repair services.
           </p>
         </div>
         <AddServiceDialog />
       </div>
 
-      <ServicesTable services={services} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="rounded-xl border bg-card p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <Icon className="size-5 text-muted-foreground" />
+              </div>
+              <p className="mt-3 text-3xl font-bold">{stat.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Your service listings</h2>
+          <p className="text-sm text-muted-foreground">
+            Track approval status, availability, and update your listings.
+          </p>
+        </div>
+        <ServicesTable services={services} />
+      </section>
     </div>
   );
 }
