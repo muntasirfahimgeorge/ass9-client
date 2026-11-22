@@ -1,56 +1,116 @@
 
 "use client";
 
-import React, { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createBooking } from "@/lib/action/booking";
 
-const RepairRequestForm = ({ serviceId }: { serviceId: string }) => {
+type RepairRequestFormProps = {
+  serviceId: string;
+  customerName: string;
+  customerEmail: string;
+  minDate: string;
+};
+
+const RepairRequestForm = ({
+  serviceId,
+  customerName,
+  customerEmail,
+  minDate,
+}: RepairRequestFormProps) => {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
     setLoading(true);
     setMessage("");
-    setSuccess(false);
 
     const formData = new FormData(event.currentTarget);
 
-    const result = await createBooking({
-      serviceId,
-      customerPhone: String(formData.get("customerPhone") || "").trim(),
-      address: String(formData.get("address") || "").trim(),
-      preferredDate: String(formData.get("preferredDate") || ""),
-      problemDescription: String(
-        formData.get("problemDescription") || ""
-      ).trim(),
-    });
+    try {
+      const result = await createBooking({
+        serviceId,
+        customerPhone: String(
+          formData.get("customerPhone") || ""
+        ).trim(),
+        address: String(
+          formData.get("address") || ""
+        ).trim(),
+        preferredDate: String(
+          formData.get("preferredDate") || ""
+        ),
+        problemDescription: String(
+          formData.get("problemDescription") || ""
+        ).trim(),
+      });
 
-    setLoading(false);
-    setMessage(result.message);
+      setMessage(result.message);
 
-    if (result.success) {
-      setSuccess(true);
-      event.currentTarget.reset();
-      router.push("/dashboard/customer/bookings");
-      router.refresh();
+      if (result.success) {
+        router.push("/dashboard/customer/bookings");
+        router.refresh();
+      }
+    } catch {
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-      <h2 className="text-lg font-semibold">Repair Request Details</h2>
+  const inputClass =
+    "mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary";
 
-      <div className="space-y-1">
-        <label htmlFor="customerPhone" className="text-sm font-medium">
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label
+          htmlFor="customerName"
+          className="text-sm font-medium"
+        >
+          Customer Name
+        </label>
+
+        <input
+          id="customerName"
+          type="text"
+          value={customerName}
+          readOnly
+          className={`${inputClass} bg-muted`}
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="customerEmail"
+          className="text-sm font-medium"
+        >
+          Email Address
+        </label>
+
+        <input
+          id="customerEmail"
+          type="email"
+          value={customerEmail}
+          readOnly
+          className={`${inputClass} bg-muted`}
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="customerPhone"
+          className="text-sm font-medium"
+        >
           Phone Number
         </label>
+
         <input
           id="customerPhone"
           name="customerPhone"
@@ -59,70 +119,86 @@ const RepairRequestForm = ({ serviceId }: { serviceId: string }) => {
           minLength={7}
           maxLength={20}
           placeholder="Enter your phone number"
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className={inputClass}
         />
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="address" className="text-sm font-medium">
-          Repair Address
+      <div>
+        <label
+          htmlFor="address"
+          className="text-sm font-medium"
+        >
+          Service Address
         </label>
+
         <textarea
           id="address"
           name="address"
           required
           minLength={5}
           rows={3}
-          placeholder="Enter your full repair address"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Enter your complete address"
+          className={inputClass}
         />
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="preferredDate" className="text-sm font-medium">
+      <div>
+        <label
+          htmlFor="preferredDate"
+          className="text-sm font-medium"
+        >
           Preferred Date
         </label>
+
         <input
           id="preferredDate"
           name="preferredDate"
           type="date"
           required
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          min={minDate}
+          className={inputClass}
         />
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="problemDescription" className="text-sm font-medium">
-          Describe the Problem
+      <div>
+        <label
+          htmlFor="problemDescription"
+          className="text-sm font-medium"
+        >
+          Describe Your Problem
         </label>
+
         <textarea
           id="problemDescription"
           name="problemDescription"
           required
           minLength={20}
           rows={4}
-          placeholder="Describe the device problem (at least 20 characters)"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Describe the device problem in at least 20 characters"
+          className={inputClass}
         />
       </div>
 
       {message && (
         <p
-          role="status"
-          className={`text-sm ${
-            success ? "text-green-600" : "text-destructive"
-          }`}
+          role="alert"
+          className="text-sm text-destructive"
         >
           {message}
         </p>
       )}
 
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full"
+      >
         {loading ? "Submitting Request..." : "Submit Repair Request"}
       </Button>
 
-      <p className="text-xs text-muted-foreground">
-        You will be able to pay after the technician completes your repair.
+      <p className="text-center text-xs text-muted-foreground">
+        No payment is required now. Pay after the technician
+        completes your repair.
       </p>
     </form>
   );
