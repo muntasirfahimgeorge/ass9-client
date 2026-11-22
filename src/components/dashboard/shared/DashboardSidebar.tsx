@@ -198,14 +198,17 @@ export default function DashboardSidebar({
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      asChild
+                      render={
+                        <Link
+                          href={item.href}
+                          onClick={handleNavigation}
+                        />
+                      }
                       isActive={active}
                       tooltip={item.title}
                     >
-                      <Link href={item.href} onClick={handleNavigation}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
+                      <item.icon />
+                      <span>{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -218,11 +221,12 @@ export default function DashboardSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Back to website">
-              <Link href="/" onClick={handleNavigation}>
-                <House />
-                <span>Back to Website</span>
-              </Link>
+            <SidebarMenuButton
+              render={<Link href="/" onClick={handleNavigation} />}
+              tooltip="Back to website"
+            >
+              <House />
+              <span>Back to Website</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
 
@@ -243,7 +247,9 @@ export default function DashboardSidebar({
               {user.name?.charAt(0)?.toUpperCase() || "U"}
             </div>
             <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-sm font-semibold">
+                {user.name}
+              </p>
               <p className="truncate text-xs text-muted-foreground">
                 {user.role}
               </p>
