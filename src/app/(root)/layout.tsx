@@ -1,6 +1,8 @@
+
 import React from "react";
 import Header from "@/components/shared/Header";
 import Navbar from "@/components/shared/Navbar";
+import Footer from "@/components/shared/Footer";
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -8,6 +10,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <Header />
       <Navbar />
       {children}
+      <Footer />
     </>
   );
 };
